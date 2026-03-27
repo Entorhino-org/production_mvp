@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Entorhino</title>
+  <meta name="description" content="Login to Entorhino — AI-driven educational platform">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="logo">
+        <h1>🎓 Entorhino</h1>
+        <p>AI-Powered Academic Monitoring</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="your@email.com" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="loginBtn">
+          Sign In
+        </button>
+      </form>
+
+      <p class="text-center mt-3 text-sm text-muted">
+        Don't have an account? <a href="/register">Create one</a>
+      </p>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (getTokens()?.access_token) {
+      const user = getUser();
+      if (user?.is_email_verified) {
+        window.location.href = '/dashboard';
+      }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      setLoading(btn, true);
+
+      try {
+        const data = await apiPost('/auth/login', {
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value,
+        });
+        setTokens(data);
+
+        const user = data.user;
+        // Route based on user state
+        if (!user.is_email_verified) {
+          // Resend OTP so they have a fresh code
+          apiPost('/auth/resend-otp', { email: user.email }).catch(() => { });
+          window.location.href = '/verify-otp?email=' + encodeURIComponent(user.email);
+        } else if (!user.is_approved && (user.role === 'student' || user.role === 'teacher')) {
+          window.location.href = '/onboarding';
+        } else {
+          window.location.href = '/dashboard';
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading(btn, false);
+      }
+    });
+  </script>
+</body>
+
+</html>

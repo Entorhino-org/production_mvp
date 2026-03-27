@@ -1,0 +1,41 @@
+# ── Environment & Secrets ──
+.env
+*.env
+.env.*
+!.env.example
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Virtualenv ──
+venv/
+.venv/
+env/
+
+# ── Uploads (user-generated content) ──
+uploads/
+
+# ── Logs ──
+*.log
+uvicorn.log
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Gemini agent artifacts ──
+.gemini/
