@@ -6,6 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, date, time
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User, UserRole, GapAnalysis, AISettings, ParentStudentLink
@@ -160,7 +163,7 @@ async def create_test(
             except Exception:
                 pass
     except Exception as e:
-        print(f"[TEST] Alert creation failed: {e}")
+        logger.warning(f"[TEST] Alert creation failed: {e}")
 
     return {
         "id": str(test.id),
@@ -213,7 +216,7 @@ async def list_tests(
     now = datetime.utcnow()
 
     if current_user.role == UserRole.STUDENT:
-        # Students: not-taken first (soonest deadline), then taken (most recent first)
+        # Students: available (not-taken + not-overdue) first, then missed (overdue), then completed
         taken_sq = (
             select(TestResult.test_id)
             .where(TestResult.student_id == current_user.id, TestResult.test_id == Test.id)
@@ -221,7 +224,13 @@ async def list_tests(
             .exists()
         )
         taken_flag = case((taken_sq, literal(1)), else_=literal(0))
-        query = query.order_by(taken_flag.asc(), Test.due_date.asc().nullslast()).offset(offset).limit(limit)
+        # Overdue flag: 1 if past due date and not taken, 0 otherwise
+        overdue_flag = case(
+            (taken_sq, literal(2)),  # taken = last priority
+            (Test.due_date < now, literal(1)),  # overdue = middle
+            else_=literal(0),  # available = first
+        )
+        query = query.order_by(overdue_flag.asc(), Test.due_date.asc().nullslast()).offset(offset).limit(limit)
     elif current_user.role == UserRole.TEACHER:
         # Teachers: most recently created first
         query = query.order_by(Test.created_at.desc()).offset(offset).limit(limit)
@@ -472,6 +481,36 @@ async def complete_test(
     # Trigger smart alerts
     await check_and_create_alerts(db, current_user.id)
 
+    # ── Notify parents if score is poor ──
+    if avg_score < 50:
+        try:
+            from app.models.communication import Alert, AlertType
+            test_obj = await db.get(Test, test_id)
+            test_title = test_obj.title if test_obj else "Unknown"
+            parent_result = await db.execute(
+                select(ParentStudentLink.parent_id).where(ParentStudentLink.student_id == current_user.id)
+            )
+            parent_ids = [r[0] for r in parent_result.all()]
+            push_targets = []
+            for parent_id in parent_ids:
+                db.add(Alert(
+                    student_id=current_user.id,
+                    recipient_id=parent_id,
+                    alert_type=AlertType.PERFORMANCE_DROP,
+                    message=f"⚠️ {current_user.full_name} scored {round(avg_score)}% on test: {test_title}.",
+                ))
+                push_targets.append((parent_id, f"⚠️ Low Test Score", f"{current_user.full_name} scored {round(avg_score)}% on {test_title}"))
+            if parent_ids:
+                await db.flush()
+                try:
+                    from app.api.push import send_push_to_user
+                    for pid, ptitle, pbody in push_targets:
+                        await send_push_to_user(db, pid, ptitle, pbody, "/dashboard")
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning(f"[TEST] Parent poor-performance alert failed: {e}")
+
     # Gap analysis — only for below-threshold scores
     gap_threshold = get_cached_setting("gap_test_threshold", 60)
     if avg_score < gap_threshold:
@@ -502,7 +541,7 @@ async def complete_test(
                 db.add(gap)
             await db.flush()
         except Exception as e:
-            print(f"[GAP ANALYSIS] Test gap detection failed: {e}")
+            logger.warning(f"[GAP ANALYSIS] Test gap detection failed: {e}")
 
     return {
         "id": str(test_result.id),

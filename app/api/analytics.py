@@ -88,9 +88,22 @@ async def class_insights(
     Class-level learning insights.
     Shows aggregate scores, struggling topics, and student rankings.
     Uses SQL aggregation for per-student averages.
+    Teachers see only their assigned subjects; admins see all.
     """
     if current_user.role not in (UserRole.TEACHER, UserRole.ADMIN, UserRole.SCHOOL_ADMIN):
         raise HTTPException(status_code=403, detail="Only teachers and admins can view class insights")
+
+    # For teachers with no subject filter, scope to their assigned subjects
+    teacher_subject_ids = None
+    if current_user.role == UserRole.TEACHER and not subject_id:
+        from app.models.academic import TeacherAssignment
+        ta_result = await db.execute(
+            select(TeacherAssignment.subject_id).where(
+                TeacherAssignment.teacher_id == current_user.id,
+                TeacherAssignment.section_id == section_id,
+            )
+        )
+        teacher_subject_ids = [r[0] for r in ta_result.all()]
 
     # Count students in this section (1 query)
     student_count_result = await db.execute(
@@ -120,6 +133,8 @@ async def class_insights(
     )
     if subject_id:
         student_avg_q = student_avg_q.join(Topic, Test.topic_id == Topic.id).where(Topic.subject_id == subject_id)
+    elif teacher_subject_ids is not None:
+        student_avg_q = student_avg_q.join(Topic, Test.topic_id == Topic.id).where(Topic.subject_id.in_(teacher_subject_ids))
     student_avg_q = student_avg_q.group_by(User.id, User.full_name).order_by(func.avg(TestResult.score).asc())
     student_avg_result = await db.execute(student_avg_q)
     ranked_students = [
@@ -138,6 +153,8 @@ async def class_insights(
     )
     if subject_id:
         class_agg_q = class_agg_q.join(Topic, Test.topic_id == Topic.id).where(Topic.subject_id == subject_id)
+    elif teacher_subject_ids is not None:
+        class_agg_q = class_agg_q.join(Topic, Test.topic_id == Topic.id).where(Topic.subject_id.in_(teacher_subject_ids))
     class_agg_result = await db.execute(class_agg_q)
     agg_row = class_agg_result.one()
     class_average = round(float(agg_row[0] or 0), 1)

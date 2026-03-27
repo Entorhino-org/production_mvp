@@ -5,6 +5,9 @@ Announcements API — create, list, and track read status.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -72,7 +75,7 @@ async def create_announcement(
             for role in roles:
                 await send_push_to_role(db, role, push_title, push_body, "/dashboard")
     except Exception as e:
-        print(f"[PUSH] Announcement push failed: {e}")
+        logger.warning(f"[PUSH] Announcement push failed: {e}")
 
     return {"id": str(announcement.id), "message": "Announcement posted"}
 

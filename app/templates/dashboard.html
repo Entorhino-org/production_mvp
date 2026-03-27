@@ -30,7 +30,8 @@
                     <button class="hamburger" onclick="toggleSidebar()">☰</button>
                     <h1 id="pageTitle">Dashboard</h1>
                 </div>
-                <div class="top-bar-actions" id="topActions"></div>
+                <div class="top-bar-actions" id="topActions"><button class="theme-toggle" id="themeToggleBtn"
+                        onclick="toggleTheme()" title="Toggle dark mode">🌙</button></div>
             </div>
             <div id="content"></div>
         </main>
@@ -56,6 +57,8 @@
         }
 
         document.getElementById('userInfo').innerHTML = `${user.full_name}<br><span style="color:var(--gray-500);text-transform:capitalize">${user.role}</span>`;
+        // Set correct theme toggle icon on load
+        (() => { const btn = document.getElementById('themeToggleBtn'); if (btn) btn.textContent = (localStorage.getItem('entorhino_theme') === 'dark') ? '☀️' : '🌙'; })();
 
         // Build nav based on role
         const navItems = {
@@ -270,6 +273,7 @@
         });
 
         function loadPage(page) {
+            closeSidebar();
             // Guard: warn if leaving during an active test (including same page = tests tab click during interview)
             if (window._activeTest && (page !== currentPage || window._viActive)) {
                 // Show custom modal
@@ -736,23 +740,28 @@
             const file = document.getElementById('topicFile').files[0];
             if (!file) { showToast('Please select a file', 'error'); return; }
             setLoading(btn, true);
+            const progress = showUploadProgress('content', '📤 Uploading and extracting text...');
             try {
                 const selectedSections = [...document.querySelectorAll('.topicSectionCb:checked')].map(cb => cb.value);
-                if (!selectedSections.length) { showToast('Please select at least one section', 'error'); setLoading(btn, false); return; }
+                if (!selectedSections.length) { showToast('Please select at least one section', 'error'); setLoading(btn, false); progress.hide(); return; }
                 // Upload to each selected section
-                for (const secId of selectedSections) {
+                for (let i = 0; i < selectedSections.length; i++) {
+                    progress.update(Math.round(((i + 0.5) / selectedSections.length) * 100), `📤 Uploading to section ${i + 1} of ${selectedSections.length}...`);
                     const fd = new FormData();
                     fd.append('title', document.getElementById('topicTitle').value);
-                    fd.append('section_id', secId);
+                    fd.append('section_id', selectedSections[i]);
                     fd.append('subject_id', document.getElementById('topicSubject').value);
                     const chapterId = document.getElementById('topicChapterId').value;
                     if (chapterId) fd.append('chapter_id', chapterId);
                     fd.append('file', file);
                     await apiPost('/topics/upload', fd);
+                    progress.update(Math.round(((i + 1) / selectedSections.length) * 100), `✅ Uploaded ${i + 1} of ${selectedSections.length} sections`);
                 }
+                progress.update(100, '✅ Upload complete!');
+                setTimeout(() => progress.hide(), 1500);
                 showToast(`Uploaded to ${selectedSections.length} section${selectedSections.length > 1 ? 's' : ''}`, 'success');
                 loadPage('topics');
-            } catch (e) { showToast(e.message, 'error'); } finally { setLoading(btn, false); }
+            } catch (e) { showToast(e.message, 'error'); progress.hide(); } finally { setLoading(btn, false); }
         };
 
         // ── Chapter Autocomplete Helper ──────────────────────────
@@ -852,13 +861,25 @@
             const name = input.value.trim();
             if (!name) return;
             let classId = '';
-            const secSel = document.getElementById(`${prefix}Section`) || document.getElementById(`hwSection`);
-            if (secSel && secSel.selectedOptions[0]) {
-                classId = secSel.selectedOptions[0].dataset?.cid || '';
-                if (!classId && window._assignmentSections) {
-                    const sid = secSel.value;
-                    const sec = window._assignmentSections.find(s => s.id === sid);
-                    classId = sec?.class_id || '';
+            if (prefix === 'topic') {
+                // Custom checkbox dropdown for topics
+                const firstChecked = document.querySelector('.topicSectionCb:checked');
+                if (firstChecked) {
+                    classId = firstChecked.dataset.cid || '';
+                    if (!classId && window._assignmentSections) {
+                        const sec = window._assignmentSections.find(s => s.id === firstChecked.value);
+                        classId = sec?.class_id || '';
+                    }
+                }
+            } else {
+                const secSel = document.getElementById(`${prefix}Section`) || document.getElementById(`hwSection`);
+                if (secSel && secSel.selectedOptions[0]) {
+                    classId = secSel.selectedOptions[0].dataset?.cid || '';
+                    if (!classId && window._assignmentSections) {
+                        const sid = secSel.value;
+                        const sec = window._assignmentSections.find(s => s.id === sid);
+                        classId = sec?.class_id || '';
+                    }
                 }
             }
             const subjSel = document.getElementById(`${prefix}Subject`) || document.getElementById(`hwSubject`);
@@ -1999,6 +2020,7 @@
         window.submitHw = async (id, hasPhoto, hasText) => {
             const btn = document.getElementById(`submitHwBtn${id}`);
             if (btn) { btn.disabled = true; btn.textContent = '⏳ Submitting...'; }
+            const progress = showUploadProgress(`hwForm${id}`, '📤 Uploading and checking with AI...');
             const fd = new FormData();
             let hasData = false;
             if (hasPhoto) {
@@ -2012,9 +2034,12 @@
                 const textEl = document.getElementById(`hwText${id}`);
                 if (textEl && textEl.value.trim()) { fd.append('text_content', textEl.value.trim()); hasData = true; }
             }
-            if (!hasData) { showToast('Please submit a photo or type your answer', 'error'); if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Homework'; } return; }
+            if (!hasData) { showToast('Please submit a photo or type your answer', 'error'); progress.hide(); if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Homework'; } return; }
             try {
+                progress.update(30, '📤 Uploading files...');
                 const d = await apiPost(`/homework/${id}/submit`, fd);
+                progress.update(100, '✅ Evaluated!');
+                setTimeout(() => progress.hide(), 1000);
                 showToast(`Score: ${d.score}% — ${d.ai_feedback}`, 'success');
                 // Update card in-place to show submitted state
                 const card = document.getElementById(`hwCard${id}`);
@@ -2032,7 +2057,7 @@
                         header.appendChild(badge);
                     }
                 }
-            } catch (e) { showToast(e.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Homework'; } }
+            } catch (e) { showToast(e.message, 'error'); progress.hide(); if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Homework'; } }
         };
 
         // ── Attendance (Teacher / Admin) ─────────────────────────
@@ -2056,7 +2081,9 @@
                     }));
                 } else {
                     const data = await apiGet('/users/my-assignments');
-                    data.sections.forEach(s => {
+                    // Only show sections where teacher is class teacher for attendance
+                    const ctSections = data.sections.filter(s => s.is_class_teacher);
+                    ctSections.forEach(s => {
                         const o = document.createElement('option');
                         o.value = s.id; o.textContent = s.label;
                         secSel.appendChild(o);

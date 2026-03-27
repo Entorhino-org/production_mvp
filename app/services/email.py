@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 import resend
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.models.user import OTPCode, OTPPurpose
 
@@ -82,13 +85,13 @@ async def send_otp_email(
         })
     except Exception as e:
         # Log but don't crash — the OTP is still stored
-        print(f"[EMAIL ERROR] Failed to send to {email}: {e}")
+        logger.warning(f"[EMAIL ERROR] Failed to send to {email}: {e}")
 
     # Always log OTP to console for dev convenience
-    print(f"\n{'='*50}")
-    print(f"  📧 OTP for {email}: {code}")
-    print(f"  Purpose: {purpose.value}")
-    print(f"{'='*50}\n")
+    logger.debug(f"\n{'='*50}")
+    logger.info(f"  📧 OTP for {email}: {code}")
+    logger.debug(f"  Purpose: {purpose.value}")
+    logger.debug(f"{'='*50}\n")
 
     return code
 

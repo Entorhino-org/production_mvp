@@ -318,12 +318,29 @@ function setLoading(btn, loading) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// Mobile Sidebar Toggle
+// Mobile Sidebar Toggle + Backdrop
 // ══════════════════════════════════════════════════════════════
 
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
-  if (sidebar) sidebar.classList.toggle('open');
+  let backdrop = document.querySelector('.sidebar-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.className = 'sidebar-backdrop';
+    backdrop.onclick = () => closeSidebar();
+    document.body.appendChild(backdrop);
+  }
+  if (sidebar) {
+    sidebar.classList.toggle('open');
+    backdrop.classList.toggle('active', sidebar.classList.contains('open'));
+  }
+}
+
+function closeSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.querySelector('.sidebar-backdrop');
+  if (sidebar) sidebar.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('active');
 }
 
 // Click outside to close
@@ -332,6 +349,79 @@ document.addEventListener('click', (e) => {
   const hamburger = document.querySelector('.hamburger');
   if (sidebar && sidebar.classList.contains('open') &&
     !sidebar.contains(e.target) && !hamburger?.contains(e.target)) {
-    sidebar.classList.remove('open');
+    closeSidebar();
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+// Dark Mode Toggle
+// ══════════════════════════════════════════════════════════════
+
+function initTheme() {
+  const saved = localStorage.getItem('entorhino_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  // Set icon once DOM is ready
+  const setIcon = () => { const btn = document.getElementById('themeToggleBtn'); if (btn) btn.textContent = saved === 'dark' ? '☀️' : '🌙'; };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setIcon); else setIcon();
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('entorhino_theme', next);
+  // Update toggle icon
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
+}
+
+// Apply theme immediately
+initTheme();
+
+// ══════════════════════════════════════════════════════════════
+// Upload Progress Helper
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Show an upload progress bar inside a container element.
+ * @param {string} containerId - ID of the container to insert progress into
+ * @param {string} message - Status text (e.g. "Uploading file...")
+ * @returns {object} controller with update(pct, msg) and hide() methods
+ */
+function showUploadProgress(containerId, message = 'Uploading...') {
+  let container = document.getElementById(containerId);
+  if (!container) return { update: () => { }, hide: () => { } };
+
+  // Create progress element if not exists
+  let el = container.querySelector('.upload-progress');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'upload-progress';
+    el.innerHTML = `
+      <div class="upload-progress-bar">
+        <div class="upload-progress-fill indeterminate" style="width:40%"></div>
+      </div>
+      <div class="upload-progress-text">
+        <span class="spinner-sm"></span>
+        <span class="upload-msg">${message}</span>
+      </div>`;
+    container.appendChild(el);
+  } else {
+    el.querySelector('.upload-msg').textContent = message;
+    el.querySelector('.upload-progress-fill').className = 'upload-progress-fill indeterminate';
+    el.querySelector('.upload-progress-fill').style.width = '40%';
+  }
+  el.classList.add('active');
+
+  return {
+    update(percent, msg) {
+      const fill = el.querySelector('.upload-progress-fill');
+      fill.classList.remove('indeterminate');
+      fill.style.width = `${Math.min(100, percent)}%`;
+      if (msg) el.querySelector('.upload-msg').textContent = msg;
+    },
+    hide() {
+      el.classList.remove('active');
+    }
+  };
+}

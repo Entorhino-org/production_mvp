@@ -6,6 +6,9 @@ import uuid
 import json
 from pathlib import Path
 from typing import List
+import logging
+
+logger = logging.getLogger(__name__)
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -150,7 +153,7 @@ async def assign_homework(
             except Exception:
                 pass
     except Exception as e:
-        print(f"[HOMEWORK] Alert creation failed: {e}")
+        logger.warning(f"[HOMEWORK] Alert creation failed: {e}")
 
     return {"id": str(homework.id), "message": "Homework assigned"}
 
@@ -424,6 +427,33 @@ async def submit_homework(
     if score is not None and score < 40:
         await check_and_create_alerts(db, current_user.id)
 
+    # ── Notify parents if homework score is poor ──
+    if score is not None and score < 50:
+        try:
+            parent_result = await db.execute(
+                select(ParentStudentLink.parent_id).where(ParentStudentLink.student_id == current_user.id)
+            )
+            parent_ids = [r[0] for r in parent_result.all()]
+            push_targets = []
+            for parent_id in parent_ids:
+                db.add(Alert(
+                    student_id=current_user.id,
+                    recipient_id=parent_id,
+                    alert_type=AlertType.HOMEWORK_POOR,
+                    message=f"⚠️ {current_user.full_name} scored {score}% on homework: {homework.title}.",
+                ))
+                push_targets.append((parent_id, f"⚠️ Low Homework Score", f"{current_user.full_name} scored {score}% on {homework.title}"))
+            if parent_ids:
+                await db.flush()
+                try:
+                    from app.api.push import send_push_to_user
+                    for pid, ptitle, pbody in push_targets:
+                        await send_push_to_user(db, pid, ptitle, pbody, "/dashboard")
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning(f"[HOMEWORK] Parent poor-performance alert failed: {e}")
+
     hw_threshold = get_cached_setting("gap_homework_threshold", 50)
     if score is not None and score < hw_threshold:
         try:
@@ -444,7 +474,7 @@ async def submit_homework(
                 db.add(gap)
             await db.flush()
         except Exception as e:
-            print(f"[GAP ANALYSIS] Homework gap detection failed: {e}")
+            logger.warning(f"[GAP ANALYSIS] Homework gap detection failed: {e}")
 
     return {
         "id": str(submission.id),

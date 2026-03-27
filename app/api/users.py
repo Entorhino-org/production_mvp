@@ -66,13 +66,19 @@ async def get_my_assignments(
     sections_map = {}
     subjects_map = {}
     class_map = {}
+    class_teacher_sections = set()  # sections where this teacher is class teacher
     for ta, sec, cls, subj in result.all():
         sections_map[str(sec.id)] = f"{cls.name} - {sec.name}"
         class_map[str(sec.id)] = str(cls.id)
         subjects_map[str(subj.id)] = subj.name
+        if ta.is_class_teacher:
+            class_teacher_sections.add(str(sec.id))
 
     return {
-        "sections": [{"id": k, "label": v, "class_id": class_map.get(k, "")} for k, v in sections_map.items()],
+        "sections": [
+            {"id": k, "label": v, "class_id": class_map.get(k, ""), "is_class_teacher": k in class_teacher_sections}
+            for k, v in sections_map.items()
+        ],
         "subjects": [{"id": k, "name": v} for k, v in subjects_map.items()],
     }
 

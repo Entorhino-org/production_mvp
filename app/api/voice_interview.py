@@ -255,7 +255,7 @@ async def voice_test_ws(websocket: WebSocket):
         ) as gemini_session:
 
             # Send initial text prompt to trigger the greeting
-            print("[VOICE] Sending initial prompt...")
+            logger.debug("[VOICE] Sending initial prompt...")
             await gemini_session.send_client_content(
                 turns=types.Content(
                     role="user",
@@ -323,7 +323,7 @@ async def voice_test_ws(websocket: WebSocket):
                                     ).strip()
                                     user_transcript_buf.clear()
                                     if user_full:
-                                        print(f"[VOICE] User: {user_full[:120]}")
+                                        logger.debug(f"[VOICE] User: {user_full[:120]}")
                                         transcript_lines.append(
                                             f"Student: {user_full}"
                                         )
@@ -349,7 +349,7 @@ async def voice_test_ws(websocket: WebSocket):
                                             "[INTERVIEW_COMPLETE]", ""
                                         ).strip()
                                     if ai_full:
-                                        print(f"[VOICE] AI: {ai_full[:120]}")
+                                        logger.debug(f"[VOICE] AI: {ai_full[:120]}")
                                         transcript_lines.append(
                                             f"Teacher: {ai_full}"
                                         )
@@ -363,11 +363,9 @@ async def voice_test_ws(websocket: WebSocket):
                                             session_closed.set()
                                             return
 
-                                print(
-                                    f"[VOICE] Turn #{turn_count} complete"
+                                logger.debug(f"[VOICE] Turn #{turn_count} complete"
                                     f" (interview_complete="
-                                    f"{interview_complete})"
-                                )
+                                    f"{interview_complete})")
                                 try:
                                     await websocket.send_json({
                                         "type": "turn_complete"
@@ -377,14 +375,14 @@ async def voice_test_ws(websocket: WebSocket):
                                     return
 
                                 if interview_complete:
-                                    print("[VOICE] Interview complete!")
+                                    logger.debug("[VOICE] Interview complete!")
                                     session_closed.set()
                                     return
 
                             # Barge-in
                             interrupted = getattr(sc, 'interrupted', False)
                             if interrupted:
-                                print("[VOICE] Barge-in")
+                                logger.debug("[VOICE] Barge-in")
                                 try:
                                     await websocket.send_json({
                                         "type": "interrupted"
@@ -394,16 +392,12 @@ async def voice_test_ws(websocket: WebSocket):
                                     return
 
                         # receive() returned (one turn done) — loop back
-                        print(
-                            f"[VOICE] receive() returned after turn"
-                            f" #{turn_count}, looping..."
-                        )
+                        logger.debug(f"[VOICE] receive() returned after turn"
+                            f" #{turn_count}, looping...")
 
                 except Exception as e:
-                    print(
-                        f"[VOICE] gemini_to_browser ERROR: {e}\n"
-                        f"{traceback.format_exc()}"
-                    )
+                    logger.warning(f"[VOICE] gemini_to_browser ERROR: {e}\n"
+                        f"{traceback.format_exc()}")
                 finally:
                     if not session_closed.is_set():
                         session_closed.set()
@@ -421,7 +415,7 @@ async def voice_test_ws(websocket: WebSocket):
                         except asyncio.TimeoutError:
                             continue
                         except (WebSocketDisconnect, RuntimeError):
-                            print("[VOICE] Browser disconnected")
+                            logger.debug("[VOICE] Browser disconnected")
                             session_closed.set()
                             return
 
@@ -436,10 +430,8 @@ async def voice_test_ws(websocket: WebSocket):
                                     )
                                 )
                             except Exception as e:
-                                print(
-                                    f"[VOICE] send audio #{audio_count}"
-                                    f" failed: {e}"
-                                )
+                                logger.warning(f"[VOICE] send audio #{audio_count}"
+                                    f" failed: {e}")
                                 session_closed.set()
                                 return
 
@@ -451,7 +443,7 @@ async def voice_test_ws(websocket: WebSocket):
                                 continue
 
                             if data.get("type") == "end_test":
-                                print("[VOICE] User ended test")
+                                logger.debug("[VOICE] User ended test")
                                 interview_complete = True
                                 try:
                                     await gemini_session.send_client_content(
@@ -476,15 +468,11 @@ async def voice_test_ws(websocket: WebSocket):
                                     session_closed.set()
                                 return
 
-                    print(
-                        f"[VOICE] browser_to_gemini done"
-                        f" ({audio_count} audio chunks)"
-                    )
+                    logger.debug(f"[VOICE] browser_to_gemini done"
+                        f" ({audio_count} audio chunks)")
                 except Exception as e:
-                    print(
-                        f"[VOICE] browser_to_gemini ERROR: {e}\n"
-                        f"{traceback.format_exc()}"
-                    )
+                    logger.warning(f"[VOICE] browser_to_gemini ERROR: {e}\n"
+                        f"{traceback.format_exc()}")
                     if not session_closed.is_set():
                         session_closed.set()
 
@@ -494,10 +482,10 @@ async def voice_test_ws(websocket: WebSocket):
                 browser_to_gemini(),
                 return_exceptions=True,
             )
-            print("[VOICE] Both tasks finished")
+            logger.debug("[VOICE] Both tasks finished")
 
     except Exception as e:
-        print(f"[VOICE] Session error: {traceback.format_exc()}")
+        logger.warning(f"[VOICE] Session error: {traceback.format_exc()}")
         try:
             await websocket.send_json({
                 "type": "error",
@@ -515,7 +503,7 @@ async def voice_test_ws(websocket: WebSocket):
     # Guard: don't evaluate if no student actually spoke
     student_lines = [l for l in transcript_lines if l.startswith("Student:")]
     if not student_lines:
-        print("[VOICE] No student responses — skipping evaluation")
+        logger.debug("[VOICE] No student responses — skipping evaluation")
         try:
             await websocket.send_json({
                 "type": "done",
@@ -529,10 +517,10 @@ async def voice_test_ws(websocket: WebSocket):
             await websocket.close()
         except Exception:
             pass
-        print("[VOICE] Session ended (no eval)")
+        logger.debug("[VOICE] Session ended (no eval)")
         return
 
-    print(f"[VOICE] Evaluating ({len(transcript_lines)} lines)...")
+    logger.debug(f"[VOICE] Evaluating ({len(transcript_lines)} lines)...")
     try:
         await websocket.send_json({
             "type": "status", "msg": "⏳ Evaluating..."
@@ -551,7 +539,7 @@ async def voice_test_ws(websocket: WebSocket):
             user_id_str, test_id, eval_result.get("results", [])
         )
     except Exception as e:
-        print(f"[VOICE] store_voice_answers failed: {e}")
+        logger.warning(f"[VOICE] store_voice_answers failed: {e}")
 
     try:
         await websocket.send_json({
@@ -567,4 +555,4 @@ async def voice_test_ws(websocket: WebSocket):
         await websocket.close()
     except Exception:
         pass
-    print("[VOICE] Session ended")
+    logger.debug("[VOICE] Session ended")

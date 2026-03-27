@@ -6,6 +6,9 @@ from datetime import datetime, timedelta
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.models.academic import TestResult, Test, Attendance, ClassStudent
 from app.models.homework import HomeworkSubmission, Homework
@@ -178,4 +181,4 @@ async def check_and_create_alerts(db: AsyncSession, student_id: UUID):
             for recipient_id, message in push_targets:
                 await send_push_to_user(db, recipient_id, "🚨 Alert", message[:200], "/dashboard")
         except Exception as e:
-            print(f"[PUSH] Alert push failed: {e}")
+            logger.warning(f"[PUSH] Alert push failed: {e}")
