@@ -1,19 +1,23 @@
 """
 Web Push Notifications API — subscribe, unsubscribe, and send push notifications.
+Push delivery runs in background threads to avoid blocking the event loop.
 """
 
 import json
+import asyncio
+import logging
 import traceback
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-from app.database import get_db
+from app.database import get_db, async_session
 from app.models.user import User, UserRole
 from app.models.communication import PushSubscription
 from app.core.dependencies import get_current_user
 from app.config import get_settings
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 router = APIRouter(prefix="/api/push", tags=["Push Notifications"])
 
@@ -75,15 +79,37 @@ async def unsubscribe_push(
     return {"message": "Push subscription removed"}
 
 
-async def send_push_to_user(db: AsyncSession, user_id, title: str, body: str, url: str = "/dashboard"):
-    """Send a web push notification to all subscriptions of a user.
-    This is a fire-and-forget helper — errors are logged but not raised."""
+def _sync_webpush(subscription_info: dict, payload: str) -> str | None:
+    """Synchronous webpush call — runs in thread pool via asyncio.to_thread.
+    Returns subscription endpoint if stale (410/404), None otherwise."""
     from pywebpush import webpush, WebPushException
+    try:
+        webpush(
+            subscription_info=subscription_info,
+            data=payload,
+            vapid_private_key=settings.VAPID_PRIVATE_KEY,
+            vapid_claims={"sub": settings.VAPID_MAILTO},
+        )
+        return None
+    except WebPushException as e:
+        if "410" in str(e) or "404" in str(e):
+            return subscription_info["endpoint"]  # stale
+        logger.warning("[PUSH] Error: %s", str(e)[:100])
+        return None
+    except Exception as e:
+        logger.warning("[PUSH] Unexpected error: %s", e)
+        return None
 
+
+async def send_push_to_user(db: AsyncSession, user_id, title: str, body: str, url: str = "/dashboard"):
+    """Send push notification to all subscriptions of a user.
+    webpush calls run in thread pool so they don't block the event loop."""
     result = await db.execute(
         select(PushSubscription).where(PushSubscription.user_id == user_id)
     )
     subs = result.scalars().all()
+    if not subs:
+        return
 
     payload = json.dumps({
         "title": title,
@@ -92,33 +118,24 @@ async def send_push_to_user(db: AsyncSession, user_id, title: str, body: str, ur
         "icon": "/static/icon-192.png",
     })
 
-    stale_ids = []
+    # Run all webpush calls in parallel threads
+    tasks = []
+    sub_map = {}  # endpoint -> sub.id
     for sub in subs:
         subscription_info = {
             "endpoint": sub.endpoint,
-            "keys": {
-                "p256dh": sub.p256dh,
-                "auth": sub.auth,
-            }
+            "keys": {"p256dh": sub.p256dh, "auth": sub.auth},
         }
-        try:
-            webpush(
-                subscription_info=subscription_info,
-                data=payload,
-                vapid_private_key=settings.VAPID_PRIVATE_KEY,
-                vapid_claims={"sub": settings.VAPID_MAILTO},
-            )
-        except WebPushException as e:
-            # 410 Gone means the subscription expired — clean up
-            if "410" in str(e) or "404" in str(e):
-                stale_ids.append(sub.id)
-            else:
-                print(f"[PUSH] Error sending to {sub.endpoint[:50]}: {e}")
-        except Exception as e:
-            print(f"[PUSH] Unexpected error: {e}")
-            traceback.print_exc()
+        sub_map[sub.endpoint] = sub.id
+        tasks.append(asyncio.to_thread(_sync_webpush, subscription_info, payload))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # Clean up stale subscriptions
+    stale_ids = []
+    for r in results:
+        if isinstance(r, str) and r in sub_map:
+            stale_ids.append(sub_map[r])
     if stale_ids:
         await db.execute(
             delete(PushSubscription).where(PushSubscription.id.in_(stale_ids))
@@ -126,21 +143,44 @@ async def send_push_to_user(db: AsyncSession, user_id, title: str, body: str, ur
         await db.flush()
 
 
+async def _background_push_task(user_ids: list, title: str, body: str, url: str):
+    """Fire-and-forget background task that sends push to multiple users.
+    Uses its own DB session so it doesn't block the caller's session."""
+    try:
+        async with async_session() as db:
+            for uid in user_ids:
+                try:
+                    await send_push_to_user(db, uid, title, body, url)
+                except Exception:
+                    pass  # Never crash the background task
+            await db.commit()
+    except Exception as e:
+        logger.warning("[PUSH BG] Background push failed: %s", e)
+
+
+def fire_push_background(user_ids: list, title: str, body: str, url: str = "/dashboard"):
+    """Schedule push notifications as a fire-and-forget background task.
+    Call this instead of send_push_to_user when you don't need to wait for delivery.
+    This is the recommended way to send push notifications from API handlers."""
+    if not user_ids:
+        return
+    asyncio.create_task(_background_push_task(user_ids, title, body, url))
+
+
 async def send_push_to_role(db: AsyncSession, role: UserRole, title: str, body: str, url: str = "/dashboard"):
-    """Send push to all users with a given role."""
+    """Send push to all users with a given role (non-blocking background)."""
     result = await db.execute(
         select(PushSubscription.user_id).join(User, PushSubscription.user_id == User.id).where(User.role == role).distinct()
     )
     user_ids = [r[0] for r in result.all()]
-    for uid in user_ids:
-        await send_push_to_user(db, uid, title, body, url)
+    fire_push_background(user_ids, title, body, url)
 
 
 async def send_push_to_all(db: AsyncSession, title: str, body: str, url: str = "/dashboard"):
-    """Send push to all subscribed users."""
+    """Send push to all subscribed users (non-blocking background)."""
     result = await db.execute(
         select(PushSubscription.user_id).distinct()
     )
     user_ids = [r[0] for r in result.all()]
-    for uid in user_ids:
-        await send_push_to_user(db, uid, title, body, url)
+    fire_push_background(user_ids, title, body, url)
+

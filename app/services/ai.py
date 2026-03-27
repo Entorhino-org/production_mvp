@@ -3,12 +3,16 @@ AI service — OpenRouter client wrapper with token tracking.
 """
 
 import json
+import asyncio
 import threading
 from datetime import date
 from typing import Optional
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
+# Cap concurrent AI API calls to prevent server overload during peak usage
+_ai_semaphore = asyncio.Semaphore(50)
 
 from app.config import get_settings
 from app.models.user import AITokenUsage, AISettings
@@ -192,26 +196,12 @@ async def ai_chat(
     await _ensure_cache(db)
     use_model = model or _cached_settings.get("ai_model", settings.OPENROUTER_MODEL)
 
-    # Use round-robin key
-    rr_key = get_next_api_key("openrouter")
-    client.api_key = rr_key
+    async with _ai_semaphore:  # Cap at 50 concurrent AI calls
+        # Use round-robin key
+        rr_key = get_next_api_key("openrouter")
+        client.api_key = rr_key
 
-    try:
-        response = await client.chat.completions.create(
-            model=use_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=0.7,
-            max_tokens=max_tokens,
-        )
-    except Exception as e:
-        # Record error for this key, retry with fallback
-        await record_api_key_error(rr_key, str(e))
-        fallback = get_fallback_api_key("openrouter")
-        if fallback and fallback != rr_key:
-            client.api_key = fallback
+        try:
             response = await client.chat.completions.create(
                 model=use_model,
                 messages=[
@@ -221,8 +211,23 @@ async def ai_chat(
                 temperature=0.7,
                 max_tokens=max_tokens,
             )
-        else:
-            raise
+        except Exception as e:
+            # Record error for this key, retry with fallback
+            await record_api_key_error(rr_key, str(e))
+            fallback = get_fallback_api_key("openrouter")
+            if fallback and fallback != rr_key:
+                client.api_key = fallback
+                response = await client.chat.completions.create(
+                    model=use_model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    temperature=0.7,
+                    max_tokens=max_tokens,
+                )
+            else:
+                raise
 
     content = response.choices[0].message.content or ""
     total_tokens = response.usage.total_tokens if response.usage else 0

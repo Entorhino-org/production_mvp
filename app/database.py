@@ -8,12 +8,12 @@ from app.config import get_settings
 
 settings = get_settings()
 
-# Async engine — pool sized for ~2.5k users single school
+# Async engine — pool sized for ~5k users / multi-school
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
-    pool_size=20,
-    max_overflow=10,
+    pool_size=50,
+    max_overflow=20,
     pool_pre_ping=True,
 )
 
