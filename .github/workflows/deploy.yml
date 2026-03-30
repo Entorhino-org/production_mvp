@@ -1,0 +1,92 @@
+name: Build and Deploy to VM
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/entorhino-org/ent_mvp
+  JWT_ALGORITHM: HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES: 30
+  REFRESH_TOKEN_EXPIRE_DAYS: 7
+  OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
+  OPENROUTER_MODEL: google/gemini-2.0-flash-001
+  UPLOAD_DIR: uploads
+  MAX_UPLOAD_SIZE_MB: 10
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.run_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Deploy to VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          envs: DATABASE_URL,JWT_SECRET_KEY,JWT_REFRESH_SECRET_KEY,JWT_ALGORITHM,ACCESS_TOKEN_EXPIRE_MINUTES,REFRESH_TOKEN_EXPIRE_DAYS,OPENROUTER_API_KEY,OPENROUTER_BASE_URL,OPENROUTER_MODEL,REDIS_URL,UPLOAD_DIR,MAX_UPLOAD_SIZE_MB,ADMIN_EMAIL,ADMIN_PASSWORD,ADMIN_NAME
+          script: |
+            set -euo pipefail
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker pull ${{ env.IMAGE_NAME }}:latest
+            docker stop ent-mvp 2>/dev/null || true
+            docker rm ent-mvp 2>/dev/null || true
+            docker run -d \
+              --name ent-mvp \
+              --restart unless-stopped \
+              -p 6000:4000 \
+              -v ent-mvp-uploads:/app/uploads \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              -e JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
+              -e JWT_REFRESH_SECRET_KEY=${{ secrets.JWT_REFRESH_SECRET_KEY }} \
+              -e JWT_ALGORITHM=${{ env.JWT_ALGORITHM }} \
+              -e ACCESS_TOKEN_EXPIRE_MINUTES=${{ env.ACCESS_TOKEN_EXPIRE_MINUTES }} \
+              -e REFRESH_TOKEN_EXPIRE_DAYS=${{ env.REFRESH_TOKEN_EXPIRE_DAYS }} \
+              -e OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
+              -e OPENROUTER_BASE_URL=${{ env.OPENROUTER_BASE_URL }} \
+              -e OPENROUTER_MODEL=${{ env.OPENROUTER_MODEL }} \
+              -e REDIS_URL=${{ secrets.REDIS_URL }} \
+              -e UPLOAD_DIR=${{ env.UPLOAD_DIR }} \
+              -e MAX_UPLOAD_SIZE_MB=${{ env.MAX_UPLOAD_SIZE_MB }} \
+              -e ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }} \
+              -e ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }} \
+              -e ADMIN_NAME="Super Admin" \
+              ${{ env.IMAGE_NAME }}:latest
+            docker image prune -f
