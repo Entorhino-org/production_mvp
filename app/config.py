@@ -3,8 +3,43 @@ Application configuration — loads infrastructure settings from .env file.
 All AI/service settings (API keys, models, voices) are managed in System Config (DB).
 """
 
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+from pydantic import PrivateAttr, model_validator
+from pydantic_settings import BaseSettings
+
+
+def normalize_postgres_url_for_asyncpg(url: str) -> tuple[str, str | None]:
+    """
+    - postgresql:// / postgres:// → postgresql+asyncpg:// (psycopg2 is not installed).
+    - ?schema=mvp (common in Azure samples) is not a libpq parameter: strip it and
+      return the schema name so the engine can set search_path (mvp, public).
+    """
+    s = url.strip()
+    if s.startswith("postgres://"):
+        s = "postgresql://" + s[len("postgres://") :]
+
+    parsed = urlparse(s)
+    qsl = parse_qsl(parsed.query, keep_blank_values=True)
+    schema_from_query: str | None = None
+    rest: list[tuple[str, str]] = []
+    for k, v in qsl:
+        if k.lower() == "schema":
+            schema_from_query = v.strip() if v else None
+        else:
+            rest.append((k, v))
+    new_query = urlencode(rest) if rest else ""
+
+    sl = parsed.scheme.lower()
+    if sl in ("postgresql", "postgres"):
+        scheme = "postgresql+asyncpg"
+    elif sl == "postgresql+asyncpg":
+        scheme = "postgresql+asyncpg"
+    else:
+        scheme = parsed.scheme
+    new_parsed = parsed._replace(scheme=scheme, query=new_query)
+    return urlunparse(new_parsed), schema_from_query
 
 
 class Settings(BaseSettings):
@@ -12,6 +47,22 @@ class Settings(BaseSettings):
 
     # ── Database ──────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://entorhino:entorhino@localhost:5432/entorhino"
+
+    _asyncpg_search_path: str | None = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _apply_database_url_normalization(self):
+        clean, schema = normalize_postgres_url_for_asyncpg(self.DATABASE_URL)
+        object.__setattr__(self, "DATABASE_URL", clean)
+        self._asyncpg_search_path = f"{schema},public" if schema else None
+        return self
+
+    @property
+    def asyncpg_connect_server_settings(self) -> dict[str, str] | None:
+        """Passed to create_async_engine(connect_args) when ?schema= was used."""
+        if self._asyncpg_search_path:
+            return {"search_path": self._asyncpg_search_path}
+        return None
 
     # ── JWT ───────────────────────────────────────────────────
     JWT_SECRET_KEY: str

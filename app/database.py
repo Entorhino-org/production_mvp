@@ -8,9 +8,14 @@ from app.config import get_settings
 
 settings = get_settings()
 
+_connect_args: dict = {}
+if settings.asyncpg_connect_server_settings:
+    _connect_args["server_settings"] = settings.asyncpg_connect_server_settings
+
 # Async engine — pool sized for ~5k users / multi-school
 engine = create_async_engine(
     settings.DATABASE_URL,
+    connect_args=_connect_args,
     echo=False,
     pool_size=50,
     max_overflow=20,
