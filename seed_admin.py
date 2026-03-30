@@ -42,12 +42,12 @@ async def main():
             hashed_password=hash_password(password),
             full_name=full_name,
             role=UserRole.ADMIN,
-            is_verified=True,
+            is_email_verified=True,
+            is_approved=True,
         )
         db.add(admin)
         await db.commit()
-        print(f"✅ Super admin created: {email} / {password}")
-        print("⚠️  Change the password immediately after first login!")
+        print(f"Super admin created: {email} (password from ADMIN_PASSWORD; not logged)")
 
 
 if __name__ == "__main__":
