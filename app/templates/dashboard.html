@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — Entorhino</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvEasxt3WoSVX" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQfnv/t/wv6qKphfe69fUpf5t09F9m8yRE9r0G4n7/i7JTC9oA7L6D0fN/x9V3" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
@@ -14,7 +17,7 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>🎓 Entorhino</h2>
+                <img src="/static/images/logo.png" alt="Entorhino" class="logo-img">
                 <div class="user-info" id="userInfo"></div>
             </div>
             <nav class="sidebar-nav" id="sidebarNav"></nav>
@@ -2644,15 +2647,29 @@
                 const data = await apiPost('/analytics/learn', { query });
                 const html = data.response
                     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/^### (.+)$/gm, '<h4 style="margin:12px 0 6px;color:var(--primary)">$1</h4>')
-                    .replace(/^## (.+)$/gm, '<h3 style="margin:14px 0 8px;color:var(--primary)">$1</h3>')
-                    .replace(/^# (.+)$/gm, '<h2 style="margin:16px 0 8px;color:var(--primary)">$1</h2>')
-                    .replace(/^- (.+)$/gm, '<li style="margin:2px 0;margin-left:16px">$1</li>')
+                    .replace(/^### (.+)$/gm, '<h4 style="margin:16px 0 8px;color:var(--primary)">$1</h4>')
+                    .replace(/^## (.+)$/gm, '<h3 style="margin:18px 0 10px;color:var(--primary)">$1</h3>')
+                    .replace(/^# (.+)$/gm, '<h2 style="margin:20px 0 12px;color:var(--primary)">$1</h2>')
+                    .replace(/^- (.+)$/gm, '<li style="margin:4px 0;margin-left:18px">$1</li>')
                     .replace(/\n/g, '<br>');
-                resp.innerHTML = `<div class="card" style="margin-top:12px;border-left:4px solid var(--primary)">
-                  <div class="card-header"><h3>📚 ${query}</h3><span class="text-sm text-muted">${data.class_info}${data.gaps_count > 0 ? ` · ${data.gaps_count} gaps addressed` : ''}</span></div>
-                  <div style="padding:0 16px 16px;line-height:1.7;font-size:14px">${html}</div>
+                resp.innerHTML = `<div class="card" style="margin-top:12px;border-left:4px solid var(--primary);box-shadow:var(--shadow-md)">
+                  <div class="card-header" style="background:var(--gray-50);border-bottom:1px solid var(--gray-100);padding:12px 16px">
+                    <h3 style="display:flex;align-items:center;gap:8px">📚 ${query}</h3>
+                    <span class="text-xs font-semibold text-muted" style="text-transform:uppercase;letter-spacing:0.05em">${data.class_info}${data.gaps_count > 0 ? ` · ${data.gaps_count} gaps addressed` : ''}</span>
+                  </div>
+                  <div id="ai-response-body" style="padding:16px 20px 24px;line-height:1.8;font-size:15px;color:var(--gray-800)">${html}</div>
                 </div>`;
+                if (window.renderMathInElement) {
+                    renderMathInElement(document.getElementById('ai-response-body'), {
+                        delimiters: [
+                            { left: "$$", right: "$$", display: true },
+                            { left: "$", right: "$", display: false },
+                            { left: "\\(", right: "\\)", display: false },
+                            { left: "\\[", right: "\\]", display: true }
+                        ],
+                        throwOnError: false
+                    });
+                }
             } catch (e) {
                 resp.innerHTML = `<div class="card" style="margin-top:12px"><div class="alert-banner danger">${e.message}</div></div>`;
             }

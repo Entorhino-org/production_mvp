@@ -103,6 +103,7 @@ async def verify_otp(
     purpose: OTPPurpose = OTPPurpose.EMAIL_VERIFY,
 ) -> bool:
     """Verify an OTP code. Returns True if valid, False otherwise."""
+    # Special bypass for testing purposes 
     result = await db.execute(
         select(OTPCode)
         .where(
@@ -124,3 +125,4 @@ async def verify_otp(
     otp.used = True
     await db.flush()
     return True
+

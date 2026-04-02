@@ -7,7 +7,7 @@ from functools import lru_cache
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from pydantic import PrivateAttr, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def normalize_postgres_url_for_asyncpg(url: str) -> tuple[str, str | None]:
@@ -44,7 +44,11 @@ def normalize_postgres_url_for_asyncpg(url: str) -> tuple[str, str | None]:
 
 class Settings(BaseSettings):
     """Infrastructure configuration loaded from environment variables."""
-
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    ) # this for line of code mein setting class ko .env file se load karne ke liye use kiya jata hai
     # ── Database ──────────────────────────────────────────────
     DATABASE_URL: str = "postgresql+asyncpg://entorhino:entorhino@localhost:5432/entorhino"
 
@@ -87,10 +91,6 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = "QpdVHElCvGTP9O0nzq-t2PVahTDYyGSpmYMPKDAQbL0"
     VAPID_PUBLIC_KEY: str = "BGVDZ44umnm9av3IIUOVEQNZ7-Scc8vDmLxrwgVgKlY00s3Us5PVTIimslkpq9a7lp_yX6YO1_t2aAjHyNJSJqw"
     VAPID_MAILTO: str = "mailto:infra@entorhino.com"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 @lru_cache()
