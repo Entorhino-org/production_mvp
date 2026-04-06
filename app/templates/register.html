@@ -1,136 +1,81 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register — Entorhino</title>
-    <meta name="description" content="Create your Entorhino account">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
+{% block title %}Register — Entorhino{% endblock %}
 
-<body>
-    <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle dark mode"
-        style="position:fixed;top:16px;right:16px;z-index:50">🌙</button>
-    <div class="auth-container">
-        <div class="auth-card">
-            <div class="logo">
-                <img src="/static/images/logo.png" alt="Entorhino">
-                <p>AI-Powered Academic Monitoring</p>
-            </div>
+{% block head %}
+<style>
+    .register-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        background: radial-gradient(circle at bottom right, var(--accent), transparent 600px);
+    }
+    
+    .register-box {
+        width: 100%;
+        max-width: 420px;
+        padding: 48px;
+        text-align: center;
+    }
+    
+    h1 {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+    
+    p {
+        color: var(--light-400);
+        margin-bottom: 40px;
+        font-size: 16px;
+    }
+    
+    input {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 14px 18px;
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 16px;
+        font-family: inherit;
+        transition: border-color 0.3s;
+    }
+    
+    input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+    
+    .register-btn {
+        width: 100%;
+        justify-content: center;
+        margin-top: 16px;
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+    }
+</style>
+{% endblock %}
 
-            <form id="registerForm">
-                <div class="form-group">
-                    <label for="role">I am a</label>
-                    <select id="role" required>
-                        <option value="">Select your role</option>
-                        <option value="student">Student</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="parent">Parent / Guardian</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="full_name">Full Name</label>
-                    <input type="text" id="full_name" placeholder="John Doe" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" placeholder="your@email.com" required>
-                </div>
-                <div class="form-group">
-                    <label for="phone">Phone Number</label>
-                    <input type="tel" id="phone" placeholder="+91 98765 43210">
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" placeholder="Min 8 chars" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="confirm_password">Confirm</label>
-                        <input type="password" id="confirm_password" placeholder="Re-enter" required>
-                    </div>
-                </div>
-
-                <!-- Parent-specific -->
-                <div id="parentFields" class="hidden">
-                    <div class="form-group">
-                        <label for="relationship">Relationship</label>
-                        <select id="relationship">
-                            <option value="father">Father</option>
-                            <option value="mother">Mother</option>
-                            <option value="guardian">Guardian</option>
-                        </select>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block btn-lg mt-2" id="registerBtn">
-                    Create Account
-                </button>
-            </form>
-
-            <p class="text-center mt-3 text-sm text-muted">
-                Already have an account? <a href="/">Sign In</a>
-            </p>
+{% block content %}
+<div class="register-container">
+    <div class="glass-panel register-box animate-fade-in">
+        <h1 class="text-gradient" style="background: linear-gradient(135deg, var(--accent), var(--primary)); -webkit-background-clip: text;">Join Entorhino</h1>
+        <p>Unlock your AI-driven performance tracking.</p>
+        
+        <form id="register-form">
+            <input type="text" placeholder="Full Name" required>
+            <input type="email" placeholder="Email address" required>
+            <input type="password" placeholder="Create Password" required>
+            <button type="submit" class="btn-primary register-btn">
+                <span>Create Account</span>
+            </button>
+        </form>
+        
+        <div style="margin-top: 24px; font-size: 14px; color: var(--light-400);">
+            Already an elite? <a href="/" style="color: var(--accent); font-weight: 600; text-decoration: none;">Sign in here</a>
         </div>
     </div>
-
-    <script src="/static/js/app.js"></script>
-    <script>
-        const roleSelect = document.getElementById('role');
-        const parentFields = document.getElementById('parentFields');
-
-        roleSelect.addEventListener('change', () => {
-            parentFields.classList.toggle('hidden', roleSelect.value !== 'parent');
-        });
-
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('registerBtn');
-
-            const pw = document.getElementById('password').value;
-            const cpw = document.getElementById('confirm_password').value;
-            if (pw !== cpw) {
-                showToast('Passwords do not match', 'error');
-                return;
-            }
-
-            setLoading(btn, true);
-            try {
-                const body = {
-                    email: document.getElementById('email').value,
-                    password: pw,
-                    full_name: document.getElementById('full_name').value,
-                    phone: document.getElementById('phone').value || null,
-                    role: roleSelect.value,
-                };
-
-                if (roleSelect.value === 'parent') {
-                    body.relationship_type = document.getElementById('relationship').value;
-                }
-
-                const data = await apiPost('/auth/register', body);
-                showToast(data.message, 'success');
-
-                if (data.access_token) {
-                    // Admin auto-login: store tokens and go to dashboard
-                    setTokens(data);
-                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-                } else {
-                    // Non-admin: redirect to OTP verification
-                    localStorage.setItem('entorhino_pending_email', body.email);
-                    setTimeout(() => {
-                        window.location.href = '/verify-otp?email=' + encodeURIComponent(body.email);
-                    }, 1000);
-                }
-            } catch (err) {
-                showToast(err.message, 'error');
-            } finally {
-                setLoading(btn, false);
-            }
-        });
-    </script>
-</body>
-
-</html>
+</div>
+{% endblock %}

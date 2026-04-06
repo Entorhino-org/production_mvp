@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Entorhino — Fast & AI-Driven Monitoring{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Experience the fastest AI-driven student performance monitoring platform with Entorhino.{% endblock %}">
+    
+    <!-- Modern Typography: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- Core Design Tokens & Styling -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/main.css') }}">
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-dark-900 text-light-100 font-outfit">
+    <!-- Main Content -->
+    <main id="main-content" class="min-vh-100">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global Scripts -->
+    <script src="{{ url_for('static', path='js/core.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
