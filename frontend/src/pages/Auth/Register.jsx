@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Phone, BookOpen, Heart, UserCheck, AlertCircle, ShieldCheck, LogIn } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import logo from '../../assets/logo.png';
 import authService from '../../api/auth';
 import './Auth.css';
 
-const Register = ({ onSwitch, onRegisterSuccess }) => {
+const Register = ({ onRegisterSuccess }) => {
   const [role, setRole] = useState('student');
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
     password: '',
-    confirm_password: '', // Added explicitly
+    confirm_password: '', 
     phone: '',
     subjects: [],
     relationship_type: ''
@@ -19,6 +20,7 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
   const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -34,7 +36,6 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
     setLoading(true);
     setError('');
 
-    // Password match check
     if (formData.password !== formData.confirm_password) {
       setError('Passwords do not match.');
       setLoading(false);
@@ -105,7 +106,6 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
 
         {!isOtpStage ? (
           <>
-            {/* Role Portal Selection Dropdown */}
             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
               <label className="form-label">Select Your Portal</label>
               <div className="input-container">
@@ -124,7 +124,6 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
             </div>
 
             <form className="auth-form" onSubmit={handleSubmit}>
-              {/* Row 1: Full Name (Full Width) */}
               <div className="form-group" style={{ marginBottom: '0.4rem' }}>
                 <label className="form-label">Full Name</label>
                 <div className="input-container">
@@ -142,7 +141,6 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
               </div>
 
               <div className="form-grid-layout" style={{ gap: '0.8rem 1.5rem' }}>
-                {/* Column Group: Email & Phone */}
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
                   <div className="input-container">
@@ -174,7 +172,6 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
                   </div>
                 </div>
 
-                {/* Column Group: Passwords */}
                 <div className="form-group">
                   <label className="form-label">Password</label>
                   <div className="input-container">
@@ -208,7 +205,6 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
                 </div>
               </div>
 
-              {/* Conditional Fields (Teacher/Parent Only) - Spans both columns */}
               {role !== 'student' && (
                 <div className="form-group" style={{ marginTop: '0.4rem' }}>
                   {role === 'teacher' ? (
@@ -297,7 +293,7 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
               <span className="auth-link" onClick={() => authService.resendOtp(formData.email)}>Resend OTP</span>
             </div>
 
-            <span className="auth-link" onClick={() => setIsOtpStage(false)} style={{ display: 'block', textAlign: 'center', marginTop: '1rem' }}>
+            <span className="auth-link" onClick={() => setIsOtpStage(false)} style={{ display: 'block', textAlign: 'center', marginTop: '1rem', cursor: 'pointer' }}>
               Go Back
             </span>
           </form>
@@ -306,7 +302,7 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
         {!isOtpStage && (
           <div className="auth-footer">
             Already have an account? 
-            <span className="auth-link" onClick={onSwitch}>Sign In</span>
+            <Link to="/login" className="auth-link">Sign In</Link>
           </div>
         )}
       </div>
@@ -315,3 +311,5 @@ const Register = ({ onSwitch, onRegisterSuccess }) => {
 };
 
 export default Register;
+
+

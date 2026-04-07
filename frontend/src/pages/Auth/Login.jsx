@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import logo from '../../assets/logo.png';
 import authService from '../../api/auth';
 import './Auth.css';
 
-const Login = ({ onSwitch, onLoginSuccess }) => {
+const Login = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,10 +21,8 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
       const data = await authService.login(email, password);
       console.log('Login successful:', data);
       
-      // Axios client returns response.data directly due to interceptor
       const { access_token, refresh_token, user } = data;
       
-      // Store in session
       localStorage.setItem('access_token', access_token);
       localStorage.setItem('refresh_token', refresh_token);
       localStorage.setItem('user', JSON.stringify(user));
@@ -99,7 +99,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
 
         <div className="auth-footer">
           Don't have an account? 
-          <span className="auth-link" onClick={onSwitch}>Create New ID</span>
+          <Link to="/register" className="auth-link">Create New ID</Link>
         </div>
       </div>
     </div>
@@ -107,3 +107,5 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
 };
 
 export default Login;
+
+
