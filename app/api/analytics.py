@@ -1104,12 +1104,15 @@ The student has the following known learning gaps:
 {gaps_text}
 
 INSTRUCTIONS:
-- Explain the topic at the appropriate class level
-- If the topic relates to any of the student's gaps, address those gaps directly
-- Use simple language, examples, and analogies appropriate for the student's level
-- Structure your response with clear headings and bullet points
-- Include a quick practice question at the end
-- Keep the response focused and not too long (aim for 300-500 words)"""
+- Explain the topic at the appropriate class level.
+- If the topic relates to any of the student's gaps, address those gaps directly.
+- Use simple language, examples, and analogies.
+- Structure your response professionally with clear headings and bullet points — it should feel like a premium textbook (book-like formatting).
+- MATHEMATICS/SCIENCE: ALWAYS use LaTeX for any mathematical formulas or scientific notations.
+  - Use $...$ for inline math (e.g., $E=mc^2$).
+  - Use $$...$$ or \\(...\\) for display/block formulas.
+- Include a quick practice question at the end.
+- Keep the response focused and high-quality (300-500 words)."""
 
     from app.services.ai import ai_chat
     response = await ai_chat(db, current_user.id, system_prompt, f"Teach me about: {topic_query}", max_tokens=2048)

@@ -33,6 +33,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser static ./static
+COPY --chown=appuser:appuser frontend/dist ./frontend/dist
 COPY --chown=appuser:appuser seed_admin.py docker-entrypoint.sh ./
 RUN chmod +x /app/docker-entrypoint.sh \
     && mkdir -p /app/uploads/topics /app/uploads/homework \

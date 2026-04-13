@@ -1,7 +1,5 @@
 # ── Environment & Secrets ──
-.env
 *.env
-.env.*
 !.env.example
 
 # ── Python ──
@@ -39,3 +37,5 @@ Thumbs.db
 
 # ── Gemini agent artifacts ──
 .gemini/
+config.bat
+node_modules
