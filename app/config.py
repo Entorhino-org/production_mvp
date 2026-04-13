@@ -56,9 +56,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _apply_database_url_normalization(self):
-        clean, schema = normalize_postgres_url_for_asyncpg(self.DATABASE_URL)
-        object.__setattr__(self, "DATABASE_URL", clean)
-        self._asyncpg_search_path = f"{schema},public" if schema else None
+        url = self.DATABASE_URL.strip()
+        # Only normalize PostgreSQL URLs; leave SQLite etc. untouched
+        if url.startswith(("postgresql", "postgres://")):
+            clean, schema = normalize_postgres_url_for_asyncpg(url)
+            object.__setattr__(self, "DATABASE_URL", clean)
+            self._asyncpg_search_path = f"{schema},public" if schema else None
         return self
 
     @property

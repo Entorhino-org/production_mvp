@@ -12,6 +12,7 @@ import GapAnalysisPortal from './pages/GapAnalysis/GapAnalysisPortal';
 import HomeworkPortal from './pages/Homework/HomeworkPortal';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
+import TeacherDashboard from './Teacher_Dashboard/TeacherDashboard';
 import './App.css';
 
 // Layout wrapper to inject sidebar into a group of routes
@@ -98,7 +99,7 @@ function App() {
         />
 
         {/* Dashboard Routes (Flat Pattern) */}
-        <Route path="/" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><Performance user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
+        <Route path="/" element={<TeacherDashboard />} />
         <Route path="/tests" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><TestsPortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
         <Route path="/homework" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><HomeworkPortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
         <Route path="/attendance" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><AttendancePortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
@@ -107,6 +108,9 @@ function App() {
         <Route path="/leaderboard" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><LeaderboardPortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
         <Route path="/gap-analysis" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><GapAnalysisPortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
         <Route path="/alerts" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><Announcements user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
+
+        {/* Teacher Dashboard Route */}
+        <Route path="/teacher" element={<TeacherDashboard />} />
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
