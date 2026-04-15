@@ -258,6 +258,7 @@ const TeacherDashboard = () => {
             </div>
 
           </div>
+        </div>
         )}
         {activePage === 'Topics / Notes' && (
           <div className="td-content" style={{ display: 'block', padding: '0' }}>

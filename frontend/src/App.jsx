@@ -99,7 +99,14 @@ function App() {
         />
 
         {/* Dashboard Routes (Flat Pattern) */}
-        <Route path="/" element={<TeacherDashboard />} />
+        <Route 
+          path="/" 
+          element={
+            !user ? <Navigate to="/login" replace /> :
+            user?.role === 'teacher' ? <TeacherDashboard /> :
+            <DashboardLayout user={user} handleLogout={handleLogout}><Performance user={user} /></DashboardLayout>
+          } 
+        />
         <Route path="/tests" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><TestsPortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
         <Route path="/homework" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><HomeworkPortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
         <Route path="/attendance" element={user ? <DashboardLayout user={user} handleLogout={handleLogout}><AttendancePortal user={user} /></DashboardLayout> : <Navigate to="/login" replace />} />
