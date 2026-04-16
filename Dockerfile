@@ -7,7 +7,7 @@ WORKDIR /frontend
 
 COPY frontend/package*.json ./
 RUN rm -rf node_modules
-RUN npm ci
+RUN npm install
 
 COPY frontend/ .
 RUN npm run build
