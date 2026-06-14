@@ -8,11 +8,9 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
 
 from app.config import get_settings
 from app.database import engine, Base
@@ -103,9 +101,13 @@ uploads_dir = Path(__file__).parent.parent / settings.UPLOAD_DIR
 uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
-templates_dir = Path(__file__).parent / "templates"
-templates_dir.mkdir(parents=True, exist_ok=True)
-templates = Jinja2Templates(directory=str(templates_dir))
+# ── Frontend Static Assets (Vite) ───────────────────────────
+frontend_dist = Path(__file__).parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    # Mount assets folder for JS/CSS/Images
+    assets_dir = frontend_dist / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
 # ── Register all API routers ─────────────────────────────────
 
@@ -125,31 +127,30 @@ app.include_router(voice_router)
 app.include_router(push_router)
 
 
-# ── Frontend routes (serve Jinja2 templates) ──────────────────
+# ── Frontend handlers (Serve React SPA) ──────────────────────
 
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+async def serve_frontend(request: Request, full_path: str):
+    """
+    Catch-all route:
+    1. If the path exists in dist (like favicon.svg), serve it.
+    2. Otherwise, serve index.html for React Router to handle.
+    """
+    # Skip API routes so they don't get swallowed by the catch-all
+    if full_path.startswith("api/"):
+        return JSONResponse(status_code=404, content={"detail": "API route not found"})
 
+    # Check for direct files in dist (e.g. favicon.svg, icons.svg)
+    file_path = frontend_dist / full_path
+    if file_path.is_file():
+        return FileResponse(file_path)
 
-@app.get("/register", response_class=HTMLResponse)
-async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
-
-
-@app.get("/verify-otp", response_class=HTMLResponse)
-async def verify_otp_page(request: Request):
-    return templates.TemplateResponse("verify_otp.html", {"request": request})
-
-
-@app.get("/onboarding", response_class=HTMLResponse)
-async def onboarding_page(request: Request):
-    return templates.TemplateResponse("onboarding.html", {"request": request})
-
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_page(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request, "config": settings})
+    # All other paths serve the main index.html (SPA logic)
+    index_file = frontend_dist / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    
+    return HTMLResponse("Frontend build not found. Run 'npm run build' in the frontend folder.", status_code=404)
 
 
 # ── Health check ──────────────────────────────────────────────

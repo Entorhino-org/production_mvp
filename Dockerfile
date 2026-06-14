@@ -1,5 +1,21 @@
-# syntax=docker/dockerfile:1
-# Builder: compile wheels / install deps only (not copied to final layers as source)
+############################
+# 1. Frontend Builder (Vite)
+############################
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+COPY frontend/package*.json ./
+RUN rm -rf node_modules
+RUN npm install
+
+COPY frontend/ .
+RUN npm run build
+
+
+############################
+# 2. Python Builder (venv)
+############################
 FROM python:3.12-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +31,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Runtime: minimal OS + venv only
+
+############################
+# 3. Runtime (final image)
+############################
 FROM python:3.12-slim-bookworm AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,21 +45,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Python venv
 COPY --from=builder /opt/venv /opt/venv
+
+# Frontend build output (Vite dist)
+COPY --from=frontend-builder /frontend/dist ./frontend/dist
+
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# Backend files
 COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser static ./static
 COPY --chown=appuser:appuser seed_admin.py docker-entrypoint.sh ./
+
 RUN chmod +x /app/docker-entrypoint.sh \
     && mkdir -p /app/uploads/topics /app/uploads/homework \
     && chown -R appuser:appuser /app/uploads
 
 USER appuser
 EXPOSE 4000
-
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4000"]

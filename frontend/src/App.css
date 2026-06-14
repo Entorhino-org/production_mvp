@@ -1,0 +1,143 @@
+.app-container {
+  display: flex;
+  width: 100vw;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background: var(--bg-dark);
+}
+
+.sidebar-trigger {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 15px; /* Tiny trigger area */
+  height: 100vh;
+  z-index: 1001; /* Above almost everything but slightly behind sidebar when out */
+  cursor: pointer;
+}
+
+.main-content {
+  flex: 1;
+  width: 100%;
+  min-height: 100vh;
+  margin-left: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-open .main-content {
+  margin-left: var(--sidebar-width); /* Space for sidebar */
+}
+
+/* Base styles for the Performance dashboard */
+.performance-page {
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Global Portal Empty and Loading States (Sharing logic across all modules) */
+.portal-empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 6rem 2rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 40px;
+  grid-column: 1 / -1;
+  margin: 1.5rem 0;
+  text-align: center;
+  width: 100%;
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 500px;
+}
+
+.empty-icon-pulse {
+  background: rgba(168, 85, 247, 0.05);
+  padding: 2rem;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+  animation: float-pulse 3s infinite ease-in-out;
+}
+
+@keyframes float-pulse {
+  0%, 100% { transform: translateY(0); opacity: 0.8; }
+  50% { transform: translateY(-10px); opacity: 1; }
+}
+
+.portal-empty-state h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: white;
+}
+
+.portal-empty-state p {
+  color: #9ca3af;
+  line-height: 1.6;
+}
+
+.empty-info-card {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  padding: 0.8rem 1.2rem;
+  border-radius: 12px;
+  color: #dfdfef;
+  font-size: 0.85rem;
+}
+
+.empty-cta-btn {
+  margin-top: 1.5rem;
+  padding: 1rem 3rem;
+  background: var(--neon-purple);
+  color: white;
+  border: none;
+  border-radius: 40px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
+  transition: all 0.3s;
+}
+
+.empty-cta-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 50px rgba(168, 85, 247, 0.6);
+}
+
+.portal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8rem;
+  gap: 2rem;
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.neon-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(168, 85, 247, 0.1);
+  border-top-color: var(--neon-purple);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

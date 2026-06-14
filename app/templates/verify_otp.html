@@ -1,129 +1,63 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Email — Entorhino</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
+{% block title %}Verify Security — Entorhino{% endblock %}
 
-<body>
-    <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle dark mode"
-        style="position:fixed;top:16px;right:16px;z-index:50">🌙</button>
-    <div class="auth-container">
-        <div class="auth-card">
-            <div class="logo">
-                <h1>✉️ Verify Email</h1>
-                <p>Enter the 6-digit code sent to</p>
-                <p class="font-bold" id="emailDisplay"></p>
+{% block head %}
+<style>
+    .verify-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        background: radial-gradient(circle at center, rgba(168, 85, 247, 0.15), transparent 800px);
+    }
+    
+    .verify-box {
+        width: 100%;
+        max-width: 420px;
+        padding: 48px;
+        text-align: center;
+    }
+    
+    .otp-inputs {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 32px;
+    }
+    
+    .otp-input {
+        width: 54px;
+        height: 64px;
+        font-size: 24px;
+        font-weight: 800;
+        border-radius: 12px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="verify-container">
+    <div class="glass-panel verify-box animate-fade-in">
+        <h1 class="text-gradient">Verify Securely</h1>
+        <p>Enter the 4-digit code sent to your email.</p>
+        
+        <form id="verify-form">
+            <div class="otp-inputs">
+                <input type="text" class="otp-input" maxlength="1" required>
+                <input type="text" class="otp-input" maxlength="1" required>
+                <input type="text" class="otp-input" maxlength="1" required>
+                <input type="text" class="otp-input" maxlength="1" required>
             </div>
-
-            <div class="otp-container" id="otpContainer">
-                <input type="text" class="otp-input" maxlength="1" data-index="0" autocomplete="off">
-                <input type="text" class="otp-input" maxlength="1" data-index="1" autocomplete="off">
-                <input type="text" class="otp-input" maxlength="1" data-index="2" autocomplete="off">
-                <input type="text" class="otp-input" maxlength="1" data-index="3" autocomplete="off">
-                <input type="text" class="otp-input" maxlength="1" data-index="4" autocomplete="off">
-                <input type="text" class="otp-input" maxlength="1" data-index="5" autocomplete="off">
-            </div>
-
-            <button class="btn btn-primary btn-block btn-lg" id="verifyBtn" disabled>
-                Verify Email
+            <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">
+                <span>Verify & Finish</span>
             </button>
-
-            <p class="text-center mt-3 text-sm text-muted">
-                Didn't receive the code?
-                <a href="#" id="resendLink">Resend OTP</a>
-            </p>
-        </div>
+        </form>
     </div>
-
-    <script src="/static/js/app.js"></script>
-    <script>
-        const params = new URLSearchParams(window.location.search);
-        const email = params.get('email') || localStorage.getItem('entorhino_pending_email') || '';
-        document.getElementById('emailDisplay').textContent = email;
-
-        // OTP input handling
-        const inputs = document.querySelectorAll('.otp-input');
-        const verifyBtn = document.getElementById('verifyBtn');
-
-        inputs.forEach((input, i) => {
-            input.addEventListener('input', (e) => {
-                if (e.target.value && i < inputs.length - 1) {
-                    inputs[i + 1].focus();
-                }
-                checkComplete();
-            });
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && !e.target.value && i > 0) {
-                    inputs[i - 1].focus();
-                }
-            });
-            // Handle paste
-            input.addEventListener('paste', (e) => {
-                e.preventDefault();
-                const paste = (e.clipboardData || window.clipboardData).getData('text').trim();
-                if (paste.length === 6 && /^\d+$/.test(paste)) {
-                    paste.split('').forEach((char, idx) => {
-                        if (inputs[idx]) inputs[idx].value = char;
-                    });
-                    inputs[5].focus();
-                    checkComplete();
-                }
-            });
-        });
-
-        function checkComplete() {
-            const code = Array.from(inputs).map(i => i.value).join('');
-            verifyBtn.disabled = code.length !== 6;
-        }
-
-        function getOTP() {
-            return Array.from(inputs).map(i => i.value).join('');
-        }
-
-        verifyBtn.addEventListener('click', async () => {
-            setLoading(verifyBtn, true);
-            try {
-                const data = await apiPost('/auth/verify-otp', {
-                    email: email,
-                    code: getOTP(),
-                });
-                setTokens(data);
-                showToast('Email verified!', 'success');
-                localStorage.removeItem('entorhino_pending_email');
-
-                const user = data.user;
-                setTimeout(() => {
-                    if (user.role === 'student' || user.role === 'teacher' || user.role === 'parent') {
-                        window.location.href = '/onboarding';
-                    } else {
-                        window.location.href = '/dashboard';
-                    }
-                }, 800);
-            } catch (err) {
-                showToast(err.message, 'error');
-            } finally {
-                setLoading(verifyBtn, false);
-            }
-        });
-
-        document.getElementById('resendLink').addEventListener('click', async (e) => {
-            e.preventDefault();
-            try {
-                await apiPost('/auth/resend-otp', { email });
-                showToast('OTP resent!', 'success');
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        });
-
-        // Auto focus first input
-        inputs[0]?.focus();
-    </script>
-</body>
-
-</html>
+</div>
+{% endblock %}

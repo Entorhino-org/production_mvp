@@ -124,3 +124,4 @@ async def verify_otp(
     otp.used = True
     await db.flush()
     return True
+
