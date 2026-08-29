@@ -35,6 +35,7 @@ from app.api.analytics import router as analytics_router
 from app.api.websocket import router as ws_router
 from app.api.voice_interview import router as voice_router
 from app.api.push import router as push_router
+from app.api.gaps import router as gaps_router
 
 settings = get_settings()
 
@@ -123,6 +124,7 @@ app.include_router(analytics_router)
 app.include_router(ws_router)
 app.include_router(voice_router)
 app.include_router(push_router)
+app.include_router(gaps_router)
 
 
 # ── Frontend routes (serve Jinja2 templates) ──────────────────
