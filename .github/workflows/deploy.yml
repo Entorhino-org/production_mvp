@@ -66,11 +66,13 @@ jobs:
           script: |
             set -euo pipefail
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker network create ent-net 2>/dev/null || true
             docker pull ${{ env.IMAGE_NAME }}:latest
             docker stop ent-mvp 2>/dev/null || true
             docker rm ent-mvp 2>/dev/null || true
             docker run -d \
               --name ent-mvp \
+              --network ent-net \
               --restart unless-stopped \
               -p 6000:4000 \
               -v ent-mvp-uploads:/app/uploads \
